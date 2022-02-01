@@ -1,24 +1,6 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 
-/* Private includes ----------------------------------------------------------*/
-/* USER CODE BEGIN Includes */
-
-/* USER CODE END Includes */
-
-/* Private typedef -----------------------------------------------------------*/
-/* USER CODE BEGIN PTD */
-
-/* USER CODE END PTD */
-
-/* Private define ------------------------------------------------------------*/
-/* USER CODE BEGIN PD */
-/* USER CODE END PD */
-
-/* Private macro -------------------------------------------------------------*/
-/* USER CODE BEGIN PM */
-
-/* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
@@ -248,7 +230,6 @@ int main(void)
 	while (1)
 	{
 
-		
 		print_Program(program);
 		
 		if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_8) == GPIO_PIN_RESET)
@@ -263,7 +244,6 @@ int main(void)
 					MainMenu();
 					FlagBlink = 1;
 				}
-					
 			}
 			CountButtonClik = 0;
 		}
@@ -273,7 +253,6 @@ int main(void)
 			while (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_15) == GPIO_PIN_RESET)
 				continue;
 	        
-			 
 			switch (program)
 			{
 			case 1:
@@ -293,7 +272,6 @@ int main(void)
 						G_R_led_set('G', 0);
 					}
 				Test_BMSel();
-				
 				break;
 				
 			case 3:
@@ -328,15 +306,13 @@ void MainMenu()
 		
 		print_Program(EncCnt);
 
-		
 		if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_8) == GPIO_PIN_RESET)
 		{
 			while (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_8) == GPIO_PIN_RESET)
 				continue;
 					
 			switch (EncCnt)
-			{
-						
+			{						
 			case 1:
 				program = 1;
 				TIM8->ARR = 20;
@@ -345,41 +321,32 @@ void MainMenu()
 				while (1)
 				{
 					EncCnt = TIM8->CNT;
-					
 					Print_Led_display(EncCnt);
-					
 					if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_8) == GPIO_PIN_RESET)
 					{
 						while (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_8) == GPIO_PIN_RESET)
 							continue;
 						SizePin = EncCnt;
-					
 						return;
 					}
-					
 				}
 			break;
 						
 			case 2:
 				program = 2;
-				
 				return;
 			break;
 				
 			case 3:
 				program = 3;
-				
 				return;
 			break;
-				
-						
+					
 			default:
 				break;
-			}
-					
+			}	
 		}
 	}
-	
 }
 void led_displayInit()
 {
@@ -512,7 +479,6 @@ uint8_t ShiftLed(uint8_t cycleShiftled, uint16_t delay)
 				data[2] = ~RXdata[2];
 				data[2] = data[2] | RegMask;
 			}
-			
 			break;
 	
 		case 1:
@@ -542,10 +508,8 @@ uint8_t ShiftLed(uint8_t cycleShiftled, uint16_t delay)
 			break;
 		}
 
-
 		if (flagErr)
 		{
-
 			Write_Shift_Reg(data);
 
 			G_R_led_set('R', 1);
@@ -575,7 +539,6 @@ uint8_t ShiftLed(uint8_t cycleShiftled, uint16_t delay)
 				}		
 			}
 		}
-
 		HAL_Delay(delay);
 	}	
 	G_R_led_set('G', 1);
@@ -775,7 +738,15 @@ uint8_t check_broken_wire(uint8_t num_pin)
 	}
 }
 
-void Write_Shift_Reg(uint8_t data[])
+
+void ShiftReg_WritePin(uint8_t pin, )
+{
+	
+}
+
+
+
+void Write_Shift_Reg(uint8_t* data)
 {
 	HAL_SPI_Transmit(&hspi1, (uint8_t*)data, 3, 100);
 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET);
@@ -784,11 +755,10 @@ void Write_Shift_Reg(uint8_t data[])
 	
 }
 
-void Read_Shift_Reg(uint8_t data[])
+void Read_Shift_Reg(uint8_t* data)
 {
 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2, GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2, GPIO_PIN_SET);
-		
+	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2, GPIO_PIN_SET);	
 	HAL_SPI_Receive(&hspi1, (uint8_t*)data, 3, 100);
 }
 
