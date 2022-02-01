@@ -270,13 +270,5 @@
     <None Include="stm32.xml">
       <Filter>VisualGDB settings</Filter>
     </None>
-    <ClCompile Include="Gpio.cpp">
-      <Filter>Source files</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="Gpio.h">
-      <Filter>Header files</Filter>
-    </ClInclude>
   </ItemGroup>
 </Project>

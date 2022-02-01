@@ -1,6 +1,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-
+#include <stdlib.h>
+#include <stdio.h>
 
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
@@ -33,24 +34,31 @@ void Print_Led_display(uint16_t chislo);
 void led_displayInit();
 uint8_t ShiftLed(uint8_t cycleShiftled, uint16_t delay);
 uint8_t check_broken_wire(uint8_t num_pin);
-void print_error();
+void print_error(uint8_t errNum);
 void Test_BMSel();
 void print_Program(uint8_t prr);
 void MainMenu();
-void Write_Shift_Reg(uint8_t data[]);
-void Read_Shift_Reg(uint8_t data[]);
+void Write_Shift_Reg(uint8_t* data);
+void Read_Shift_Reg(uint8_t* data);
+uint8_t ShiftReg_ReadPin(uint8_t pin);
+void ShiftReg_WritePin(uint8_t pin, uint8_t state);
+void Error(uint8_t err);
+void ChekWire(uint8_t pinNumber, uint16_t delay);
 /* Private user code ---------------------------------------------------------*/
+union ShiftReg
+{
+	uint32_t data_shift;
+	uint8_t data[4];
+};
 
 volatile uint16_t cnt;
 volatile uint8_t razr1, razr2, razr3, nextRazr;
 uint16_t EncCnt;
 uint8_t SizePin=20;
 uint8_t program=1;
-
 uint16_t CountTim = 0;
 uint8_t FlagUpDown = 0;
 uint8_t FlagBlink = 1;
-
 uint16_t CountButtonClik = 0;
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
@@ -204,7 +212,7 @@ int main(void)
 	HAL_Init();
 	/* Configure the system clock */
 	SystemClock_Config();
-
+	
 	/* Initialize all configured peripherals */
 	MX_GPIO_Init();
 	MX_I2C1_Init();
@@ -224,12 +232,10 @@ int main(void)
 	HAL_Delay(100);
 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_3, GPIO_PIN_RESET);
 	Buzzer_Pik(50, 1);
-	
-	
 	HAL_Delay(1000);
+
 	while (1)
 	{
-
 		print_Program(program);
 		
 		if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_8) == GPIO_PIN_RESET)
@@ -252,16 +258,18 @@ int main(void)
 		{
 			while (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_15) == GPIO_PIN_RESET)
 				continue;
-	        
 			switch (program)
 			{
 			case 1:
+				//ChekWire(SizePin, 100);
+				
 				if (!check_broken_wire(SizePin))
 					if (!ShiftLed(SizePin, 20))
 					{
 						HAL_Delay(1000);
 						G_R_led_set('G', 0);
 					}
+		
 				break;
 				
 			case 2:
@@ -513,7 +521,7 @@ uint8_t ShiftLed(uint8_t cycleShiftled, uint16_t delay)
 			Write_Shift_Reg(data);
 
 			G_R_led_set('R', 1);
-			print_error();
+			print_error(2);
 			Buzzer_Pik(200, 1);
 			while (1)
 			{
@@ -572,7 +580,6 @@ void Test_BMSel()
 	Write_Shift_Reg(data);
 		
 }
-
 uint8_t check_broken_wire(uint8_t num_pin)
 {
 	uint8_t data[3] = { 0, 0, 0 };
@@ -711,7 +718,7 @@ uint8_t check_broken_wire(uint8_t num_pin)
 		Write_Shift_Reg(data);
 
 		G_R_led_set('R', 1);
-		print_error();
+		print_error(1);
 		Buzzer_Pik(200, 1);
 		while (1)
 		{	
@@ -739,12 +746,100 @@ uint8_t check_broken_wire(uint8_t num_pin)
 }
 
 
-void ShiftReg_WritePin(uint8_t pin, )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void ChekWire(uint8_t pinNumber, uint16_t delay)
 {
+	for (uint8_t i = 1; i<pinNumber+1;i++)
+	{
+		ShiftReg_WritePin(i, 0);
+		HAL_Delay(delay);
+		if (ShiftReg_ReadPin(i))
+		{
+			Error(1);
+			return;
+		}
+	}
 	
+	for (uint8_t j = 1; j < pinNumber + 1; j++)
+	{
+		ShiftReg_WritePin(j, 1);
+		HAL_Delay(delay);
+		if (!ShiftReg_ReadPin(j))
+		{
+			Error(2);
+			return;
+		} 
+	}
+	
+	G_R_led_set('G', 1);
+	ShiftReg_WritePin(0, 0);
+	HAL_Delay(1000);
+	G_R_led_set('G', 0);
+	return;
 }
 
+void Error(uint8_t err)
+{
+	G_R_led_set('R', 1);
+	print_error(err);
+	Buzzer_Pik(200, 1);
+	while (1)
+	{	
+		HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_3);
+		for (uint16_t i = 0; i < 500; i++)
+		{
+			HAL_Delay(1);
+			if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_8) == GPIO_PIN_RESET)
+			{
+				while (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_8) == GPIO_PIN_RESET)
+					continue;
+				
+				//Write_Shift_Reg();
+				G_R_led_set('R', 0);
+				return;	
+			}
+		}		
+	}
+}
 
+void ShiftReg_WritePin(uint8_t pin, uint8_t state)
+{
+	uint32_t data = (1 << (pin - 1));
+	
+	if (!state) data = data ^ 0xffffffff;	
+	
+	uint8_t outData[3];
+	outData[2] = (uint8_t)(data & 0xff);
+	outData[1] = (uint8_t)((data>>8) & 0xff);
+	outData[0] = (uint8_t)((data>>16) & 0xff);
+	Write_Shift_Reg(outData);
+}
+
+uint8_t ShiftReg_ReadPin(uint8_t pin)
+{
+	union ShiftReg inputData;
+	uint8_t input[3];
+	Read_Shift_Reg(input);
+	inputData.data[0] = input[2];
+	inputData.data[1] = input[1];
+	inputData.data[2] = input[0];
+	return (uint8_t)((inputData.data_shift >> (pin - 1)) & 0x1);
+}
 
 void Write_Shift_Reg(uint8_t* data)
 {
@@ -752,9 +847,7 @@ void Write_Shift_Reg(uint8_t* data)
 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET);
 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET);
 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_3, GPIO_PIN_RESET);
-	
 }
-
 void Read_Shift_Reg(uint8_t* data)
 {
 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2, GPIO_PIN_RESET);
@@ -892,11 +985,11 @@ void Print_Number(uint8_t num)
 
 	}	
 }
-void print_error()
+void print_error(uint8_t errNum)
 {
 	razr1 = 'e';
 	razr2 = 'r';
-	razr3 = 'r';
+	razr3 = errNum;
 }
 
 void print_Program(uint8_t prr)
