@@ -1,0 +1,4 @@
+VisualGDB/Release/Gpio.o: Gpio.cpp \
+ C:/Program1/stm_vs/1024-Ksae-CableTest.Rev.1.0/Gpio.h
+
+C:/Program1/stm_vs/1024-Ksae-CableTest.Rev.1.0/Gpio.h:

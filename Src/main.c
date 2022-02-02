@@ -32,8 +32,6 @@ void G_R_led_set(unsigned char color, uint8_t state);
 void Print_Number(uint8_t num);
 void Print_Led_display(uint16_t chislo);
 void led_displayInit();
-uint8_t ShiftLed(uint8_t cycleShiftled, uint16_t delay);
-uint8_t check_broken_wire(uint8_t num_pin);
 void print_error(uint8_t errNum);
 void Test_BMSel();
 void print_Program(uint8_t prr);
