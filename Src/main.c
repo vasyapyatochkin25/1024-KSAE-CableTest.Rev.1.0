@@ -43,7 +43,9 @@ void Read_Shift_Reg(uint8_t* data);
 uint8_t ShiftReg_ReadPin(uint8_t pin);
 void ShiftReg_WritePin(uint8_t pin, uint8_t state);
 void Error(uint8_t err);
-void ChekWire(uint8_t pinNumber, uint16_t delay);
+uint8_t ChekWire(uint8_t pinNumber, uint16_t delay);
+uint8_t CheckAllWare(uint8_t pinNumber);
+uint8_t ChekWireForSer(uint8_t pinNumber, uint16_t delay);
 /* Private user code ---------------------------------------------------------*/
 union ShiftReg
 {
@@ -261,35 +263,42 @@ int main(void)
 			switch (program)
 			{
 			case 1:
-				//ChekWire(SizePin, 100);
-				
-				if (!check_broken_wire(SizePin))
-					if (!ShiftLed(SizePin, 20))
-					{
-						HAL_Delay(1000);
-						G_R_led_set('G', 0);
-					}
-		
+				if (CheckAllWare(SizePin)) { Error(1); break;}
+				if (ChekWire(SizePin, 10)){Error(2); break;}
 				break;
 				
 			case 2:
-				if (!check_broken_wire(1))
-					if (!ShiftLed(1, 20))
-					{
-						HAL_Delay(1000);
-						G_R_led_set('G', 0);
-					}
+				if (CheckAllWare(1)) { Error(1); break;}
+				if (ChekWire(1, 50)){Error(2); break;}
 				Test_BMSel();
 				break;
 				
 			case 3:
-				if (!check_broken_wire(10))
-					if (!ShiftLed(10, 20))
-					{
-						HAL_Delay(1000);
-						G_R_led_set('G', 0);
-					}
+				
+				if (CheckAllWare(10)) { Error(1); break;}
+				if (ChekWire(10, 20)){Error(2); break;}
 			break;
+				
+			case 4:
+				if (CheckAllWare(10)) { Error(1); break;}
+				switch (ChekWireForSer(10, 20))
+				{
+				case 0:
+					//complete
+					break;
+					
+				case 1:
+					Error(2);
+					break;
+					
+				case 2:
+					Error(3);
+					break;
+							
+				default:
+					break;
+				}				
+				break;
 				
 			default:
 				break;
@@ -300,7 +309,7 @@ int main(void)
 
 void MainMenu()
 {
-	TIM8->ARR = 3;
+	TIM8->ARR = 4;
 	TIM8->CNT = 0;
 	while (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_8) == GPIO_PIN_RESET)
 		continue;
@@ -350,6 +359,11 @@ void MainMenu()
 				return;
 			break;
 					
+			case 4:
+				program = 4;
+				return;
+			break;
+				
 			default:
 				break;
 			}	
@@ -377,187 +391,6 @@ void Print_Led_display(uint16_t chislo)
 	razr2 = chislo % 100 / 10;
 	razr3 = chislo % 100 % 10;	
 }
-uint8_t ShiftLed(uint8_t cycleShiftled, uint16_t delay)
-{
-	
-	uint8_t data[3] = { 0, 0, 0 };
-	uint8_t RXdata[3] = { 0, 0, 0 };
-	/* USER CODE END 0 */
-	uint8_t i = 0;
-	uint8_t masnext = 2;
-	uint8_t RegMask = 0;
-	
-	uint8_t BitFree = 8 - (cycleShiftled % 8);
-	uint8_t ByteBusy = cycleShiftled / 8;
-	uint8_t flagErr = 0;
-	
-	Write_Shift_Reg(data);
-
-	switch (BitFree)
-	{
-	
-	case 1:
-		RegMask = 128;
-		break;
-		
-	case 2:
-		RegMask = 192;
-		break;
-		
-	case 3:
-		RegMask = 224;
-		break;
-		
-	case 4:
-		RegMask = 240;
-		break;
-		
-	case 5:
-		RegMask = 248;
-		break;
-	
-	case 6:
-		RegMask = 252;
-		break;
-		
-	case 7:
-		RegMask = 254;
-		break;
-	case 8:
-		RegMask = 0xff;
-		break;
-	default:
-		break;
-	}
-	
-	switch (ByteBusy)
-	{
-	case 0:
-		data[0] = 0xff;
-		data[1] = 0xff;
-		data[2] = RegMask;
-		break;
-		
-	case 1:
-		data[0] = 0xff;
-		data[1] = RegMask;
-		break;
-	
-	case 2:
-		data[0] = RegMask;
-		break;
-		
-	default:
-		break;
-	}
-	
-
-	G_R_led_set('G', 0);
-	G_R_led_set('R', 0);
-	
-	for (uint8_t cnt = 0; cnt < cycleShiftled; cnt++)
-	{
-		if (i > 7) 
-		{
-			i = 0;
-			data[masnext] = 0;
-			if (!masnext)
-			{
-				masnext = 2;
-			}
-			else
-				masnext--;
-		}
-		
-		if (i)
-			data[masnext] &= ~(1 << (i - 1));
-		data[masnext] = data[masnext] | (1 << i);
-		i++;
-		
-		Write_Shift_Reg(data);
-		HAL_Delay(10);
-		Read_Shift_Reg(RXdata);
-
-		switch (ByteBusy)
-		{
-		case 0:
-			if ((RXdata[2] | RegMask) != data[2])
-			{
-				flagErr = 1;
-				data[2] = ~RXdata[2];
-				data[2] = data[2] | RegMask;
-			}
-			break;
-	
-		case 1:
-			
-			if (!((RXdata[2] == data[2])&((RXdata[1] | RegMask) == data[1])))
-			{
-				flagErr = 1;		
-				data[2] = ~RXdata[2];
-				data[1] = ~RXdata[1];
-				data[1] = data[1] | RegMask;
-			}	
-			break;
-		
-		case 2:
-			if (!((RXdata[2] == data[2])&(RXdata[1] == data[1])&((RXdata[0] | RegMask) == data[0])))
-			{
-				flagErr = 1;
-			
-				data[2] = ~RXdata[2];
-				data[1] = ~RXdata[1];
-				data[0] = ~RXdata[0];
-				data[0] = data[0] | RegMask;
-			}
-			break;
-		
-		default:
-			break;
-		}
-
-		if (flagErr)
-		{
-			Write_Shift_Reg(data);
-
-			G_R_led_set('R', 1);
-			print_error(2);
-			Buzzer_Pik(200, 1);
-			while (1)
-			{
-				HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_3);
-				for (uint16_t i = 0; i < 500; i++)
-				{
-				
-					HAL_Delay(1);
-				
-					if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_8) == GPIO_PIN_RESET)
-					{
-						while (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_8) == GPIO_PIN_RESET)
-							continue;
-						
-						
-						G_R_led_set('R', 0);
-						data[0] = 0;
-						data[1] = 0;
-						data[2] = 0;
-						Write_Shift_Reg(data);
-						return 1;	
-					}
-				}		
-			}
-		}
-		HAL_Delay(delay);
-	}	
-	G_R_led_set('G', 1);
-	G_R_led_set('R', 0);
-	data[0] = 0;
-	data[1] = 0;
-	data[2] = 0;
-	Write_Shift_Reg(data);
-	
-	return 0;
-}
 
 void Test_BMSel()
 {
@@ -580,198 +413,76 @@ void Test_BMSel()
 	Write_Shift_Reg(data);
 		
 }
-uint8_t check_broken_wire(uint8_t num_pin)
+
+
+
+
+
+uint8_t CheckAllWare(uint8_t pinNumber)
 {
-	uint8_t data[3] = { 0, 0, 0 };
-	uint8_t RXdata[3] = { 0, 0, 0 };
-
-	uint8_t RegMask = 0;
-	
-	uint8_t BitFree = 8 - (num_pin % 8);
-	uint8_t ByteBusy = num_pin / 8;
-	uint8_t flagErr = 0;
-	
-	Write_Shift_Reg(data);
-	
-	G_R_led_set('G', 0);
-	G_R_led_set('R', 0);
-
-	switch (BitFree)
-	{
-	
-	case 1:
-		RegMask = 128;
-		break;
-		
-	case 2:
-		RegMask = 192;
-		break;
-		
-	case 3:
-		RegMask = 224;
-		break;
-		
-	case 4:
-		RegMask = 240;
-		break;
-		
-	case 5:
-		RegMask = 248;
-		break;
-	
-	case 6:
-		RegMask = 252;
-		break;
-		
-	case 7:
-		RegMask = 254;
-		break;
-	case 8:
-		RegMask = 0xff;
-		break;
-	default:
-		break;
-	}
-	
-	switch (ByteBusy)
-	{
-	case 0:
-		data[0] = 0xff;
-		data[1] = 0xff;
-		data[2] = RegMask;
-		break;
-		
-	case 1:
-		data[0] = 0xff;
-		data[1] = RegMask;
-		break;
-	
-	case 2:
-		data[0] = RegMask;
-		break;
-		
-	default:
-		break;
-	}
-	///////////////////////////////
-	///////////////////////////////////////////
-	//////////////////////////////////////////
-	
-	Write_Shift_Reg(data);
-	
+	uint32_t data = 0xffffffff>>(32-pinNumber);
+	data =~ data;
+	uint8_t transmitData[3];
+	transmitData[2] = (uint8_t)(data & 0xff);
+	transmitData[1] = (uint8_t)((data >> 8) & 0xff);
+	transmitData[0] = (uint8_t)((data >> 16) & 0xff);
+	Write_Shift_Reg(transmitData);
 	HAL_Delay(10);
 	
-	Read_Shift_Reg(RXdata);
-	
-	
-	switch (ByteBusy)
-	{
-	case 0:
-		if ((RXdata[2] | RegMask) != data[2])
-		{
-			flagErr = 1;
-			data[2] = ~RXdata[2];
-			data[2] = data[2] | RegMask;
-		}
-			
-		break;
-	
-	case 1:
-			
-		if (!((RXdata[2] == data[2])&((RXdata[1] | RegMask) == data[1])))
-		{
-			flagErr = 1;		
-			data[2] = ~RXdata[2];
-			data[1] = ~RXdata[1];
-			data[1] = data[1] | RegMask;
-		}	
-		break;
-		
-	case 2:
-		if (!((RXdata[2] == data[2])&(RXdata[1] == data[1])&((RXdata[0] | RegMask) == data[0])))
-		{
-			flagErr = 1;
-			
-			data[2] = ~RXdata[2];
-			data[1] = ~RXdata[1];
-			data[0] = ~RXdata[0];
-			data[0] = data[0] | RegMask;
-		}
-		break;
-		
-	default:
-		break;
-	}
-	
-	if (!flagErr)
-	{
-		G_R_led_set('G', 1);
-		data[0] = 0;
-		data[1] = 0;
-		data[2] = 0;
-		Write_Shift_Reg(data);
-		
-		return 0;
-	}		
-	else
-	{
-		Write_Shift_Reg(data);
 
-		G_R_led_set('R', 1);
-		print_error(1);
-		Buzzer_Pik(200, 1);
-		while (1)
-		{	
-			HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_3);
-			for (uint16_t i = 0; i < 500; i++)
-			{
-				
-				HAL_Delay(1);
-				
-				if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_8) == GPIO_PIN_RESET)
-				{
-					while (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_8) == GPIO_PIN_RESET)
-						continue;
-					
-					G_R_led_set('R', 0);
-					data[0] = 0;
-					data[1] = 0;
-					data[2] = 0;
-					Write_Shift_Reg(data);
-					return 1;	
-				}
-			}		
-		}
+	union ShiftReg inputData;
+	uint8_t input[3];
+	Read_Shift_Reg(input);
+	inputData.data[0] = input[2];
+	inputData.data[1] = input[1];
+	inputData.data[2] = input[0];
+	
+	inputData.data_shift |= data;
+	
+	if (inputData.data_shift!=data)
+	{
+		return 1;
 	}
+	return 0;
 }
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-void ChekWire(uint8_t pinNumber, uint16_t delay)
+uint8_t ChekWire(uint8_t pinNumber, uint16_t delay)
 {
 	for (uint8_t i = 1; i<pinNumber+1;i++)
 	{
 		ShiftReg_WritePin(i, 0);
 		HAL_Delay(delay);
-		if (ShiftReg_ReadPin(i))
+		if (ShiftReg_ReadPin(i)) return 1;
+	}
+	for (uint8_t j = 1; j < pinNumber + 1; j++)
+	{
+		ShiftReg_WritePin(j, 1);
+		HAL_Delay(delay);
+		if (!ShiftReg_ReadPin(j)) return 1; 
+	}
+	G_R_led_set('G', 1);
+	ShiftReg_WritePin(0, 0);
+	HAL_Delay(1000);
+	G_R_led_set('G', 0);
+	return 0;
+}
+
+uint8_t ChekWireForSer(uint8_t pinNumber, uint16_t delay)
+{
+	for (uint8_t i = 1; i < pinNumber + 1; i++)
+	{
+		ShiftReg_WritePin(i, 0);
+		HAL_Delay(delay);
+		if ((i == 7)|(i==8))
 		{
-			Error(1);
-			return;
+			if (!(ShiftReg_ReadPin(7) && ShiftReg_ReadPin(8))) return 2;
+		}
+		else
+		{
+			if (ShiftReg_ReadPin(i)) return 1;
 		}
 	}
 	
@@ -779,20 +490,22 @@ void ChekWire(uint8_t pinNumber, uint16_t delay)
 	{
 		ShiftReg_WritePin(j, 1);
 		HAL_Delay(delay);
-		if (!ShiftReg_ReadPin(j))
+		if (!ShiftReg_ReadPin(j)) return 1; 
+		if ((j == 7) | (j == 8))
 		{
-			Error(2);
-			return;
-		} 
+			if (!(ShiftReg_ReadPin(7) && ShiftReg_ReadPin(8))) return 2;
+		}
+		else
+		{
+			if (!ShiftReg_ReadPin(j)) return 1;
+		}
 	}
-	
 	G_R_led_set('G', 1);
 	ShiftReg_WritePin(0, 0);
 	HAL_Delay(1000);
 	G_R_led_set('G', 0);
-	return;
+	return 0;
 }
-
 void Error(uint8_t err)
 {
 	G_R_led_set('R', 1);
