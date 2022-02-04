@@ -476,7 +476,7 @@ uint8_t ChekWireForSer(uint8_t pinNumber, uint16_t delay)
 		HAL_Delay(delay);
 		if ((i == 7)|(i==8))
 		{
-			if (!(ShiftReg_ReadPin(7) && ShiftReg_ReadPin(8))) return 2;
+			if ((ShiftReg_ReadPin(7) && ShiftReg_ReadPin(8))) return 2;
 		}
 		else
 		{
@@ -491,7 +491,7 @@ uint8_t ChekWireForSer(uint8_t pinNumber, uint16_t delay)
 		if (!ShiftReg_ReadPin(j)) return 1; 
 		if ((j == 7) | (j == 8))
 		{
-			if (!(ShiftReg_ReadPin(7) && ShiftReg_ReadPin(8))) return 2;
+			if ((ShiftReg_ReadPin(7) && ShiftReg_ReadPin(8))) return 2;
 		}
 		else
 		{
